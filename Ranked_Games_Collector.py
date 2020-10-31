@@ -35,10 +35,13 @@ mmrpoint = {'IRON IV': 0,
             'PLATINUM III': 1700,
             'PLATINUM II': 1800,
             'PLATINUM I': 1900,
-            'DIAMOND IV': 1600,
-            'DIAMOND III': 1700,
-            'DIAMOND II': 1800,
-            'DIAMOND I': 1900,
+            'DIAMOND IV': 2000,
+            'DIAMOND III': 2100,
+            'DIAMOND II': 2200,
+            'DIAMOND I': 2300,
+            'MASTER I': 2400,
+            'GRAND MASTER': 2500,
+            'CHALLENGER I': 2600 
             }
 
 
@@ -155,6 +158,7 @@ champion_names = {
     142: 'Zoe',
     143: 'Zyra',
     145: "Kai'sa",
+    147: "Seraphine",
     150: 'Gnar',
     154: 'Zac',
     157: 'Yasuo',
@@ -199,7 +203,8 @@ champion_names = {
 
 client = MongoClient('mongodb://localhost:27017/')
 
-api_key = "Riotkey"
+api_key = ""
+sv = "br1"
 
 global History
 History = {}
@@ -208,13 +213,13 @@ def apicall(apirequest,optarg=None):
     request = requests.get(apirequest)
     if request.status_code == 404:
         print("404")
-        print(apirequest)
+        print("{}{}".format(apirequest[0:apirequest.rindex('api_key=')],"**REDACTED**"))
         print("trying again - Sleeping for 10sec")
         time.sleep(10)
         request = "404"
     elif request.status_code == 400:
         print("400")
-        print(apirequest)
+        print("{}{}".format(apirequest[0:apirequest.rindex('api_key=')],"**REDACTED**"))
     elif request.status_code == 429:
         print("429 - excess - sleeping 60sec")
         time.sleep(60)
@@ -240,7 +245,7 @@ def apicall(apirequest,optarg=None):
         time.sleep(2)
         request = requests.get(apirequest)
     else:
-        print(apirequest)
+        print("{}{}".format(apirequest[0:apirequest.rindex('api_key=')],"**REDACTED**"))
         x = 2
     return request
 
@@ -248,7 +253,7 @@ def get_historic_soloQ(loop, server, player):
     # Getting the account id of the player
     apirequest ="https://{}.api.riotgames.com/lol/summoner/v4/summoners/by-name/{}?api_key={}".format(server, player, api_key)
     print(player)
-    print(apirequest)
+    print("{}{}".format(apirequest[0:apirequest.rindex('api_key=')],"**REDACTED**"))
     get_account_id = apicall(apirequest)
     accountId = json.loads(get_account_id.text)["accountId"]
     _id = json.loads(get_account_id.text)["id"]
@@ -432,7 +437,7 @@ def get_role(jsonwin, accountId, side, timestamp):
 
 
 def get_rank(summonerid):
-    apirequest = ("https://{}.api.riotgames.com/lol/league/v4/entries/by-summoner/{}?&api_key={}".format("euw1", summonerid, api_key))
+    apirequest = ("https://{}.api.riotgames.com/lol/league/v4/entries/by-summoner/{}?&api_key={}".format(sv, summonerid, api_key))
     game_data = apicall(apirequest)
     mmr_score = 0
     if game_data.text == []:
@@ -454,7 +459,7 @@ def get_rank(summonerid):
 
 
 def get_mastery(summonerid):
-    apirequest = ("https://{}.api.riotgames.com/lol/champion-mastery/v4/champion-masteries/by-summoner/{}?&api_key={}".format("euw1", summonerid, api_key))
+    apirequest = ("https://{}.api.riotgames.com/lol/champion-mastery/v4/champion-masteries/by-summoner/{}?&api_key={}".format(sv, summonerid, api_key))
     mastery_data = apicall(apirequest)
     mastery = json.loads(mastery_data.text)
     l = 0
@@ -467,9 +472,9 @@ def get_mastery(summonerid):
     return Masteries
 
 def get_history(currentAccountId,timestamp,accountId):
-    endTime = timestamp - 2000 #33min before last game
-    beginTime = timestamp - 604800 *1000 #Last week
-    server = "euw1"
+    endTime = timestamp - (2000 * 1000) #33min before last game
+    beginTime = timestamp - (604800 * 1000) #last week
+    server = sv
     apirequest = "https://{}.api.riotgames.com/lol/match/v4/matchlists/by-account/{}?endTime={}&beginTime={}&api_key={}".format(server, currentAccountId, endTime, beginTime, api_key)
     matches_data = apicall(apirequest)
     if matches_data == "404" :
@@ -574,7 +579,7 @@ def update_model():
         dbmongo = client["MetAnalyser"]
         collection = dbmongo["Teammate"]
         gameId = document["gameId"]
-        cursor = collection.find({'gameIdref': gameId})
+        cursor = collection.find({'gameId': gameId})
         panda = pd.DataFrame(list(cursor))
         if len(panda.index) < 1:
             break
@@ -605,7 +610,7 @@ def update_model():
             streak = streak.lstrip()
 
             # --------------------------Getting MMR ---------------------------------------------------------------------------------
-            apirequest = ("https://{}.api.riotgames.com//lol/league/v4/entries/by-summoner/{}?&api_key={}".format("euw1", j, api_key))
+            apirequest = ("https://{}.api.riotgames.com//lol/league/v4/entries/by-summoner/{}?&api_key={}".format(sv, j, api_key))
             game_data = apicall(apirequest)
             if game_data.text == []:
                 rating = "unranked"
@@ -626,8 +631,8 @@ def update_model():
 
             # --------------------------Getting Masteries ---------------------------------------------------------------------------------
 
-            apirequest = ("https://{}.api.riotgames.com//lol/champion-mastery/v4/champion-masteries/by-summoner/{}?&api_key={}".format("euw1", j, api_key))
-            # print("https://{}.api.riotgames.com//lol/champion-mastery/v4/champion-masteries/by-summoner/{}?&api_key={}".format("euw1", j, api_key))
+            apirequest = ("https://{}.api.riotgames.com//lol/champion-mastery/v4/champion-masteries/by-summoner/{}?&api_key={}".format(sv, j, api_key))
+            # print("https://{}.api.riotgames.com//lol/champion-mastery/v4/champion-masteries/by-summoner/{}?&api_key={}".format(sv, j, api_key))
             mastery_data = apicall(apirequest)
             mastery = json.loads(mastery_data.text)
 
@@ -739,15 +744,15 @@ def update_model_tiltscore_winrate():
 
 
 def get_summonerId(player):
-        apirequest = "https://{}.api.riotgames.com/lol/summoner/v4/summoners/by-name/{}?api_key={}".format("euw1", player, key)
-        print(apirequest)
+        apirequest = "https://{}.api.riotgames.com/lol/summoner/v4/summoners/by-name/{}?api_key={}".format(sv, player, api_key)
+        print("{}{}".format(apirequest[0:apirequest.rindex('api_key=')],"**REDACTED**"))
         api_data = apicall(apirequest)
         accountId = json.loads(api_data.text)["accountId"]
         summonId = json.loads(api_data.text)["id"]
         return summonId
 
 def get_currentAccountId(player):
-        apirequest = "https://{}.api.riotgames.com/lol/summoner/v4/summoners/by-name/{}?api_key={}".format("euw1", player, key)
+        apirequest = "https://{}.api.riotgames.com/lol/summoner/v4/summoners/by-name/{}?api_key={}".format(sv, player, api_key)
         api_data = apicall(apirequest)
         currentAccountId = json.loads(api_data.text)["accountId"]
         summonId = json.loads(api_data.text)["id"]
@@ -761,13 +766,14 @@ def playerinfo(player):
     mmr = get_rank(summonerId)
     Masteries = get_mastery(summonerId)
     currentAccountId = get_currentAccountId(player)
-    History = get_history(currentAccountId,int(time.time()) * 1000)
+    History_Data = get_history(currentAccountId,int(time.time()) * 1000, currentAccountId)
+    History = History_Data[0]
     tilt = tilt_score(History.get(str(0), {}).get('result'),History.get(str(1), {}).get('result'),History.get(str(2), {}).get('result'),History.get(str(3), {}).get('result'),History.get(str(4), {}).get('result'))
     streak =  winorlose(History.get(str(0), {}).get('result')) + " " + winorlose(History.get(str(1), {}).get('result')) + " " + winorlose(History.get(str(2), {}).get('result')) + " " + winorlose(History.get(str(3), {}).get('result')) + " " + winorlose(History.get(str(4), {}).get('result'))
 
     data = pd.DataFrame.from_dict(History).T
     print(data)
-    mostcommonlane = data['lane'].value_counts().idxmax()
+    mostcommonlane = data['role'].value_counts().idxmax()
     mostcommonchamp = data['champion'].value_counts().idxmax()
     averagekda = data["KDA2"].mean()
     mostcommonchamp = data['champion'].value_counts().idxmax()
@@ -785,7 +791,7 @@ def playerinfo(player):
     match1["info"] = {"summonerId": summonerId, "accountId": currentAccountId, "summonerName": player, 'tiltscore': tilt, 'streak' : streak, "mmr" : mmr , "lane" : mostcommonlane, "KDA": averagekda, "champion": mostcommonchamp, "top20champ": Masteries , "History" : History }
 
     collection.insert_one(match1)
-
+    return player
 
 def getrandomplayer():
     role = ['Top','ADC','Mid','Jungle','Support']
@@ -805,9 +811,13 @@ def getrandomplayer():
 dbmongo = client["MetAnalyser"]
 collection = dbmongo["Matches"]
 
+# summoner = playerinfo("PLAYER_NAME")
+# print(summoner)
+# get_historic_soloQ(20, sv, summoner)
+# update_model()
 
 for i in range(30):
     summoner = getrandomplayer()
     print(summoner)
     print(i)
-    get_historic_soloQ(20, "euw1", summoner)
+    get_historic_soloQ(5, sv, summoner)
